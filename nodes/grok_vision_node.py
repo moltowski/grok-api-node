@@ -21,8 +21,17 @@ def tensor_to_base64(image_tensor):
     return base64.b64encode(buffer.getvalue()).decode("utf-8"), "image/png"
 
 
+def collect_images(*image_inputs):
+    """Convert non-None IMAGE tensors to a list of (b64_str, mime) tuples."""
+    results = []
+    for tensor in image_inputs:
+        if tensor is not None:
+            results.append(tensor_to_base64(tensor))
+    return results
+
+
 class GrokVisionNode:
-    """Analyze an image with Grok Vision and return a descriptive prompt string."""
+    """Analyze up to 5 images with Grok Vision and return a descriptive prompt string."""
 
     CATEGORY = "Grok API"
     RETURN_TYPES = ("STRING",)
@@ -42,7 +51,7 @@ class GrokVisionNode:
         return {
             "required": {
                 "api_key": ("STRING", {"default": "xai-...", "multiline": False, "password": True}),
-                "image": ("IMAGE",),
+                "image_1": ("IMAGE",),
                 "model": (VISION_MODELS, {"default": VISION_MODELS[0]}),
                 "system_prompt": ("STRING", {"default": cls.DEFAULT_SYSTEM_PROMPT, "multiline": True}),
                 "user_message": ("STRING", {
@@ -51,15 +60,22 @@ class GrokVisionNode:
                 }),
                 "temperature": ("FLOAT", {"default": 0.7, "min": 0.0, "max": 2.0, "step": 0.05}),
                 "max_tokens": ("INT", {"default": 1024, "min": 64, "max": 4096, "step": 64}),
-            }
+            },
+            "optional": {
+                "image_2": ("IMAGE",),
+                "image_3": ("IMAGE",),
+                "image_4": ("IMAGE",),
+                "image_5": ("IMAGE",),
+            },
         }
 
-    def run(self, api_key, image, model, system_prompt, user_message, temperature, max_tokens):
+    def run(self, api_key, image_1, model, system_prompt, user_message, temperature, max_tokens,
+            image_2=None, image_3=None, image_4=None, image_5=None):
         if not api_key or api_key == "xai-..." or not api_key.strip():
             return ("[GrokVisionNode Error] Please provide a valid xAI API key",)
 
         try:
-            b64_image, mime_type = tensor_to_base64(image)
+            images = collect_images(image_1, image_2, image_3, image_4, image_5)
         except Exception as e:
             return (f"[GrokVisionNode Error] Image conversion failed: {str(e)}",)
 
@@ -68,8 +84,7 @@ class GrokVisionNode:
             model=model,
             system_prompt=system_prompt,
             user_text=user_message,
-            image_base64=b64_image,
-            image_mime=mime_type,
+            images=images,
             temperature=temperature,
             max_tokens=max_tokens,
         )

@@ -52,19 +52,16 @@ class GrokClient:
             return f"[Grok API Error] {type(e).__name__}: {str(e)}"
 
     def vision(self, model: str, system_prompt: str, user_text: str,
-               image_base64: str, image_mime: str = "image/png",
-               temperature: float = 0.7, max_tokens: int = 1024) -> str:
+               images: list, temperature: float = 0.7, max_tokens: int = 1024) -> str:
+        image_blocks = [
+            {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{b64}"}}
+            for b64, mime in images
+        ]
         messages = [
             {"role": "system", "content": system_prompt},
             {
                 "role": "user",
-                "content": [
-                    {"type": "text", "text": user_text},
-                    {
-                        "type": "image_url",
-                        "image_url": {"url": f"data:{image_mime};base64,{image_base64}"},
-                    },
-                ],
+                "content": [{"type": "text", "text": user_text}] + image_blocks,
             },
         ]
         return self.chat(model, messages, temperature, max_tokens)
